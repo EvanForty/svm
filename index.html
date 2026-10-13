@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SVM // Launch your own Solana</title>
+<meta name="description" content="A one-click launchpad for SVM appchains. Launch your own Solana.">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#04050c">
+<meta property="og:title" content="SVM // Launch your own Solana">
+<meta property="og:description" content="A one-click launchpad for SVM appchains. Launch your own Solana.">
+<meta property="og:image" content="/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@SVMpad">
+<meta name="twitter:image" content="/og.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{
+  --void:#04050c; --panel:#0c0e22; --panel2:#14173a; --steel:#7d82a8; --dim:#4a4e78;
+  --text:#dfe3ff; --cyan:#2ff5e6; --violet:#8a5cff; --mag:#ff3df5; --warn:#ffd23f;
+  --px:4px; color-scheme:dark;
+  --display:"Press Start 2P", ui-monospace, "Courier New", monospace;
+  --body:"VT323", ui-monospace, "Courier New", monospace;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --void:#04050c; --panel:#0c0e22; --text:#dfe3ff; } }
+:root[data-theme="dark"]{ --void:#04050c; --panel:#0c0e22; --text:#dfe3ff; }
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 72px); scroll-behavior:smooth}
+body{margin:0;background:var(--void);color:var(--text);font-family:var(--body);font-size:22px;line-height:1.25;
+  -webkit-font-smoothing:none; font-smooth:never; image-rendering:pixelated; overflow-x:hidden}
+img{max-width:100%;image-rendering:pixelated}
+a{color:var(--cyan)}
+::selection{background:var(--mag);color:var(--void)}
+/* CRT scanlines */
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:100;
+  background:repeating-linear-gradient(to bottom,rgba(0,0,0,0) 0 2px,rgba(0,0,0,.22) 2px 4px)}
+/* pixel grid floor */
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;opacity:.35;
+  background-image:linear-gradient(var(--panel2) 1px,transparent 1px),linear-gradient(90deg,var(--panel2) 1px,transparent 1px);
+  background-size:32px 32px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+h1,h2,h3,.disp{font-family:var(--display);font-weight:400;letter-spacing:0;margin:0}
+p{margin:0 0 .6em;max-width:62ch}
+/* notched pixel box */
+.px{position:relative;background:var(--panel);
+  box-shadow: 0 calc(var(--px)*-1) 0 0 var(--line,var(--dim)), 0 var(--px) 0 0 var(--line,var(--dim)),
+  calc(var(--px)*-1) 0 0 0 var(--line,var(--dim)), var(--px) 0 0 0 var(--line,var(--dim))}
+.btn{font-family:var(--display);font-size:12px;line-height:1;padding:14px 18px;border:0;cursor:pointer;color:var(--void);
+  background:var(--cyan);text-decoration:none;display:inline-flex;gap:10px;align-items:center;white-space:nowrap;
+  box-shadow:0 -4px 0 0 var(--cyan),0 4px 0 0 #129c92,-4px 0 0 0 var(--cyan),4px 0 0 0 var(--cyan),inset -4px -4px 0 0 rgba(0,0,0,.25)}
+.btn:hover{background:#7ffff4}
+.btn:active{transform:translate(0,4px);box-shadow:0 -4px 0 0 var(--cyan),0 0 0 0 #129c92,-4px 0 0 0 var(--cyan),4px 0 0 0 var(--cyan)}
+.btn.ghost{background:transparent;color:var(--text);box-shadow:0 -4px 0 0 var(--dim),0 4px 0 0 var(--dim),-4px 0 0 0 var(--dim),4px 0 0 0 var(--dim)}
+.btn.ghost:hover{color:var(--cyan)}
+.btn.mag{background:var(--mag);box-shadow:0 -4px 0 0 var(--mag),0 4px 0 0 #a01a9b,-4px 0 0 0 var(--mag),4px 0 0 0 var(--mag),inset -4px -4px 0 0 rgba(0,0,0,.25)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:4px dashed var(--warn);outline-offset:6px}
+
+/* header */
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:50;background:rgba(4,5,12,.92);border-bottom:4px solid var(--panel2)}
+.top .wrap{display:flex;align-items:center;gap:22px;height:68px}
+.brand{display:flex;align-items:center;gap:12px;color:var(--text);text-decoration:none;font-family:var(--display);font-size:14px}
+.brand img{width:44px;height:44px}
+.brand small{display:block;font-family:var(--body);font-size:18px;color:var(--steel);margin-top:4px}
+nav.links{display:flex;gap:20px;margin-left:auto}
+nav.links a{color:var(--steel);text-decoration:none;font-size:22px}
+nav.links a:hover{color:var(--cyan)}
+nav.links a::before{content:"[";color:var(--dim)} nav.links a::after{content:"]";color:var(--dim)}
+@media (max-width:900px){nav.links{display:none} .brand small{display:none}}
+.xbtn{margin-left:auto;padding:13px 14px}
+.xbtn svg{width:14px;height:14px;display:block}
+@media (min-width:901px){.xbtn{margin-left:12px}}
+.walletbtn{margin-left:16px}
+
+/* status rail */
+.rail{border-bottom:4px solid var(--panel2);background:var(--panel);font-size:20px;overflow-x:auto}
+.rail .wrap{display:flex;gap:28px;padding-top:6px;padding-bottom:6px;white-space:nowrap}
+.rail span{color:var(--steel)} .rail b{color:var(--text);font-weight:400}
+.dot{display:inline-block;width:8px;height:8px;background:var(--cyan);margin-right:8px;vertical-align:2px;animation:blink 1.2s steps(2) infinite}
+.dot.off{background:var(--dim);animation:none}
+@keyframes blink{50%{opacity:.2}}
+
+/* hero */
+.hero{padding:72px 0 56px}
+.hero .wrap{display:grid;grid-template-columns:1.15fr .85fr;gap:48px;align-items:center}
+@media (max-width:900px){.hero .wrap{grid-template-columns:1fr} .hero-art{order:-1;max-width:320px;margin:0 auto}}
+.prompt{color:var(--cyan);font-size:24px;margin-bottom:22px}
+.hero h1{font-size:clamp(30px,5.4vw,62px);line-height:1.18;
+  background:linear-gradient(90deg,var(--cyan),var(--violet) 55%,var(--mag));-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(4px 4px 0 #1b1240)}
+.hero h1 .caret{display:inline-block;width:.55em;height:.12em;background:var(--cyan);vertical-align:baseline;animation:blink 1s steps(2) infinite}
+.hero .lede{font-size:26px;margin:26px 0 30px;color:var(--text)}
+.cta{display:flex;gap:22px;flex-wrap:wrap}
+.hero-art{position:relative}
+.vox-wrap{position:relative;aspect-ratio:1/1;width:100%}
+.vox-wrap canvas{display:block;width:100%;height:100%;cursor:grab;touch-action:pan-y}
+.vox-wrap canvas:active{cursor:grabbing}
+.vox-wrap .voxfb{display:none;position:absolute;inset:0;width:100%;animation:bob 2.4s steps(4) infinite}
+.vox-wrap.fallback canvas{display:none}.vox-wrap.fallback .voxfb{display:block}
+.vox-hint{text-align:center;color:var(--steel);font-size:20px;margin-top:10px}
+.vox-hint b{color:var(--cyan);font-weight:400}
+@keyframes bob{50%{transform:translateY(-8px)}}
+.compare{margin-top:40px;display:grid;gap:6px;font-size:22px;color:var(--steel)}
+.compare b{color:var(--text);font-weight:400}
+.compare .me b{color:var(--cyan)}
+
+/* ticker */
+.ticker{border-block:4px solid var(--panel2);background:var(--panel);overflow:hidden;font-size:22px}
+.ticker .track{display:flex;gap:48px;width:max-content;padding:10px 0;animation:scroll 40s linear infinite}
+.ticker .track span::before{content:"";display:inline-block;width:8px;height:8px;background:var(--mag);margin-right:14px;vertical-align:3px}
+@keyframes scroll{to{transform:translateX(-50%)}}
+
+/* sections */
+section.blk{padding:84px 0 20px}
+.shead{display:flex;align-items:baseline;justify-content:space-between;gap:20px;border-bottom:4px solid var(--panel2);padding-bottom:12px;margin-bottom:28px;flex-wrap:wrap}
+.shead h2{font-size:clamp(16px,2.4vw,24px);line-height:1.4}
+.shead h2 i{font-style:normal;color:var(--dim);margin-right:12px}
+.shead .tag{color:var(--steel);font-size:22px}
+.intro{font-size:24px;margin-bottom:28px}
+
+/* process */
+.proc{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
+@media (max-width:900px){.proc{grid-template-columns:1fr 1fr}} @media (max-width:520px){.proc{grid-template-columns:1fr}}
+.proc .px{padding:20px}
+.proc code{font-family:var(--body);color:var(--cyan);font-size:24px;display:block;margin-bottom:10px}
+.proc code em{font-style:normal;color:var(--dim)}
+.proc p{color:var(--steel);margin:0}
+
+/* factory */
+.factory{display:grid;grid-template-columns:1fr 1fr;gap:32px}
+@media (max-width:900px){.factory{grid-template-columns:1fr}}
+.form{padding:24px;display:grid;gap:18px;--line:var(--violet)}
+.field label{display:flex;justify-content:space-between;color:var(--steel);margin-bottom:6px}
+.field label output{color:var(--cyan)}
+input[type=text],select{width:100%;font:inherit;font-size:24px;color:var(--text);background:var(--void);border:0;padding:8px 12px;
+  box-shadow:0 -4px 0 0 var(--panel2),0 4px 0 0 var(--panel2),-4px 0 0 0 var(--panel2),4px 0 0 0 var(--panel2);border-radius:0;-webkit-appearance:none;appearance:none}
+select{background-image:linear-gradient(45deg,transparent 50%,var(--cyan) 50%),linear-gradient(135deg,var(--cyan) 50%,transparent 50%);
+  background-position:calc(100% - 22px) 55%,calc(100% - 14px) 55%;background-size:8px 8px;background-repeat:no-repeat;padding-right:40px}
+input[type=text]:focus,select:focus{outline:none;box-shadow:0 -4px 0 0 var(--cyan),0 4px 0 0 var(--cyan),-4px 0 0 0 var(--cyan),4px 0 0 0 var(--cyan)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:520px){.row2{grid-template-columns:1fr}}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:12px;background:var(--panel2);margin:8px 0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:24px;background:var(--cyan);cursor:pointer;border:0;box-shadow:inset -4px -4px 0 #129c92}
+input[type=range]::-moz-range-thumb{width:20px;height:24px;background:var(--cyan);border:0;border-radius:0;cursor:pointer}
+.seg{display:flex;gap:10px;flex-wrap:wrap}
+.seg button{font:inherit;font-size:22px;color:var(--steel);background:var(--void);border:0;padding:6px 12px;cursor:pointer;
+  box-shadow:0 -4px 0 0 var(--panel2),0 4px 0 0 var(--panel2),-4px 0 0 0 var(--panel2),4px 0 0 0 var(--panel2)}
+.seg button[aria-pressed="true"]{color:var(--void);background:var(--violet);box-shadow:0 -4px 0 0 var(--violet),0 4px 0 0 var(--violet),-4px 0 0 0 var(--violet),4px 0 0 0 var(--violet)}
+
+.preview{padding:24px;--line:var(--cyan);display:flex;flex-direction:column;gap:18px}
+.chainhead{display:flex;gap:16px;align-items:center}
+.chainicon{width:64px;height:64px;flex:none;display:grid;place-items:center;font-family:var(--display);font-size:18px;color:var(--void);background:var(--mag);
+  box-shadow:inset -6px -6px 0 rgba(0,0,0,.3),inset 6px 6px 0 rgba(255,255,255,.25)}
+.chainhead h3{font-size:16px;line-height:1.4;word-break:break-word}
+.chainhead .sub{color:var(--steel)}
+.meters{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.meter{background:var(--void);padding:10px 12px}
+.meter span{display:block;color:var(--steel);font-size:18px}
+.meter b{font-family:var(--display);font-weight:400;font-size:14px;color:var(--cyan);display:block;margin-top:6px}
+.bars{display:flex;gap:4px;height:48px;align-items:flex-end}
+.bars i{flex:1;background:var(--violet);display:block}
+pre.cfg{margin:0;background:var(--void);padding:14px;font-family:var(--body);font-size:20px;line-height:1.15;color:var(--cyan);overflow:auto;max-height:240px}
+pre.cfg .k{color:var(--mag)}
+.deploy{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.deploy small{color:var(--steel);font-size:19px;flex:1;min-width:200px}
+.receipt{display:none;background:var(--void);padding:12px 14px;color:var(--text);font-size:20px;word-break:break-all}
+.receipt.on{display:block}
+.receipt b{color:var(--cyan);font-weight:400}
+
+/* modules */
+.mods{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
+@media (max-width:900px){.mods{grid-template-columns:1fr 1fr}} @media (max-width:560px){.mods{grid-template-columns:1fr}}
+.mod{padding:22px}
+.mod .ico{width:40px;height:40px;margin-bottom:16px}
+.mod h3{font-size:12px;line-height:1.5;margin-bottom:10px;color:var(--text)}
+.mod p{color:var(--steel);margin:0}
+.mod ul{list-style:none;padding:0;margin:12px 0 0;display:flex;gap:8px;flex-wrap:wrap}
+.mod li{font-size:19px;color:var(--cyan);background:var(--void);padding:2px 8px}
+
+/* marketplace */
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:22px;min-width:640px}
+th{font-weight:400;color:var(--steel);text-align:left;padding:10px 12px;border-bottom:4px solid var(--panel2)}
+td{padding:12px;border-bottom:2px dashed var(--panel2)}
+td .nm{display:flex;align-items:center;gap:12px}
+td .nm i{width:28px;height:28px;display:block;flex:none}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+th.num{text-align:right}
+.tpsbar{display:inline-block;height:12px;background:var(--cyan);vertical-align:middle;margin-left:10px}
+.note{color:var(--steel);font-size:19px;margin-top:12px}
+
+/* flywheel */
+.wheel{display:grid;grid-template-columns:repeat(5,1fr);gap:0;align-items:stretch}
+@media (max-width:900px){.wheel{grid-template-columns:1fr}}
+.wstep{padding:20px 18px;position:relative;margin:0 16px}
+.wstep b{font-family:var(--display);font-weight:400;font-size:20px;display:block;margin-bottom:10px}
+.wstep:nth-child(1) b{color:var(--cyan)} .wstep:nth-child(2) b{color:#4fd0ff} .wstep:nth-child(3) b{color:var(--violet)}
+.wstep:nth-child(4) b{color:#c44dff} .wstep:nth-child(5) b{color:var(--mag)}
+.wstep:not(:last-child)::after{content:"";position:absolute;right:-26px;top:50%;width:12px;height:20px;transform:translateY(-50%);
+  background:var(--steel);clip-path:polygon(0 0,0 100%,100% 50%)}
+@media (max-width:900px){.wstep{margin:0 0 30px}.wstep:not(:last-child)::after{right:auto;left:50%;top:auto;bottom:-24px;transform:translateX(-50%) rotate(90deg)}}
+.loopback{margin-top:14px;text-align:center;color:var(--steel);font-size:22px;border-top:4px dashed var(--dim);padding-top:10px}
+
+/* revenue + roadmap */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:32px}
+@media (max-width:900px){.split{grid-template-columns:1fr}}
+.rev{padding:24px}
+.rev dl{margin:0;display:grid;gap:0}
+.rev dt{color:var(--text)} .rev dd{margin:0 0 14px;color:var(--steel)}
+.phase{padding:24px;margin-bottom:28px}
+.phase .when{color:var(--cyan);font-size:22px;margin-bottom:8px}
+.phase h3{font-size:13px;line-height:1.5;margin-bottom:10px}
+.phase p{color:var(--steel);margin:0}
+.phase.next{--line:var(--dim);background:transparent}
+.phase.next .when{color:var(--mag)}
+
+.final{padding:96px 0 60px;text-align:center}
+.final img{width:120px;margin:0 auto 24px;display:block}
+.final h2{font-size:clamp(22px,4vw,40px);line-height:1.3;margin-bottom:18px}
+.final p{margin:0 auto 28px;color:var(--steel)}
+.final .cta{justify-content:center}
+
+.risk{padding:18px 22px;--line:var(--warn);margin-top:60px;background:transparent}
+.risk b{color:var(--warn);font-weight:400}
+
+footer{border-top:4px solid var(--panel2);margin-top:60px;padding:24px 0 32px;color:var(--steel);font-size:20px}
+footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+
+/* modal + toast */
+.modal{position:fixed;inset:0;z-index:200;background:rgba(4,5,12,.82);display:none;align-items:center;justify-content:center;padding:20px}
+.modal.on{display:flex}
+.modal .box{width:100%;max-width:420px;padding:24px;--line:var(--violet)}
+.modal h3{font-size:14px;margin-bottom:18px;line-height:1.4}
+.wlist{display:grid;gap:14px;margin-bottom:18px}
+.wopt{display:flex;justify-content:space-between;align-items:center;font:inherit;font-size:24px;color:var(--text);background:var(--void);border:0;padding:12px 14px;cursor:pointer;
+  box-shadow:0 -4px 0 0 var(--panel2),0 4px 0 0 var(--panel2),-4px 0 0 0 var(--panel2),4px 0 0 0 var(--panel2);text-align:left}
+.wopt:hover{color:var(--cyan)}
+.wopt small{font-size:18px;color:var(--steel)}
+.wopt[data-ok="1"] small{color:var(--cyan)}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:210;padding:12px 18px;--line:var(--cyan);display:none;font-size:22px;max-width:90vw}
+.toast.on{display:block}
+.toast.err{--line:var(--mag)}
+.acct{display:none;position:absolute;right:0;top:calc(100% + 14px);width:280px;padding:16px;--line:var(--cyan);z-index:60}
+.acct.on{display:block}
+.acct p{margin:0 0 8px;color:var(--steel);word-break:break-all}
+.acct p b{color:var(--text);font-weight:400}
+.wbox{position:relative}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="SVM home">
+      <img id="logoSrc" src="/logo.png" alt="">
+      <span>SVM<small>chain factory for Solana</small></span>
+    </a>
+    <nav class="links" aria-label="Main">
+      <a href="#factory">factory</a><a href="#modules">modules</a><a href="#market">market</a><a href="#token">$SVM</a><a href="#roadmap">roadmap</a>
+    </nav>
+    <a class="btn ghost xbtn" href="https://x.com/SVMpad" target="_blank" rel="noopener" aria-label="SVM on X" title="@SVMpad on X"><svg viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M0 0h2v1H0zM7 0h1v1H7zM1 1h2v1H1zM6 1h1v1H6zM2 2h2v1H2zM5 2h1v1H5zM3 3h2v2H3zM2 5h1v1H2zM4 5h2v1H4zM1 6h1v1H1zM5 6h2v1H5zM0 7h1v1H0zM6 7h2v1H6z"/></svg></a>
+    <div class="wbox walletbtn">
+      <button class="btn" id="connectBtn" type="button">Connect wallet</button>
+      <div class="acct px" id="acct" role="dialog" aria-label="Wallet">
+        <p>Wallet<br><b id="acctWallet">—</b></p>
+        <p>Address<br><b id="acctAddr">—</b></p>
+        <p>Balance<br><b id="acctBal">—</b></p>
+        <div style="display:flex;gap:16px;margin-top:14px;flex-wrap:wrap">
+          <button class="btn ghost" id="copyBtn" type="button">Copy</button>
+          <button class="btn mag" id="discBtn" type="button">Disconnect</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+
+
+<main id="top">
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <div class="prompt">&gt; svm deploy --one-click</div>
+      <h1>Launch your own Solana<span class="caret" aria-hidden="true"></span></h1>
+      <p class="lede">Pick a name, a gas token and your fees. SVM spins up an SVM-powered appchain with validators, an RPC endpoint, an explorer and a public dashboard. No infrastructure team required.</p>
+      <div class="cta">
+        <a class="btn" href="#factory">Open the factory</a>
+        <a class="btn ghost" href="#market">Browse chains</a>
+      </div>
+      <div class="compare" aria-label="What changes">
+        <div>Pump.fun made <b>tokens</b> one click.</div>
+        <div>SPL made <b>programs</b> one click.</div>
+        <div class="me">SVM makes <b>blockchains</b> one click.</div>
+      </div>
+    </div>
+    <div class="hero-art">
+      <div class="vox-wrap" id="voxWrap">
+        <canvas id="vox" tabindex="0" role="img" aria-label="Interactive 3D voxel SVM logo. Drag to spin, click to shatter. Arrow keys rotate, Enter shatters."></canvas>
+        <img class="voxfb" src="" data-logo alt="SVM logo: a pixel-art terminal machine with SVM on its screen" width="420" height="420">
+      </div>
+      <div class="vox-hint"><b>drag</b> to spin, <b>click</b> to shatter</div>
+    </div>
+  </div>
+</section>
+
+
+
+<section class="blk" id="how">
+  <div class="wrap">
+    <div class="shead"><h2><i>01</i>From idea to chain</h2><span class="tag">four calls, one click</span></div>
+    <div class="proc">
+      <div class="px"><code><em>1.</em> createChain()</code><p>Name it and pick a gas token. New or an existing SPL token.</p></div>
+      <div class="px"><code><em>2.</em> configure()</code><p>Set fees, block time, validators and who can deploy programs.</p></div>
+      <div class="px"><code><em>3.</em> pickModules()</code><p>Choose settlement, data availability, RPC and bridges.</p></div>
+      <div class="px"><code><em>4.</em> deploy()</code><p>Your chain goes live with an explorer, RPC and dashboard.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="blk" id="factory">
+  <div class="wrap">
+    <div class="shead"><h2><i>02</i>Chain Factory</h2><span class="tag">no-code builder</span></div>
+    <p class="intro">Configure a chain below. The preview and config update as you go. Connect a wallet to sign the config and reserve your chain name for launch.</p>
+    <div class="factory">
+      <form class="form px" id="cfgForm" onsubmit="return false" aria-label="Chain configuration">
+        <div class="row2">
+          <div class="field"><label for="fName">Chain name</label><input type="text" id="fName" value="frogworld" maxlength="20" autocomplete="off"></div>
+          <div class="field"><label for="fTick">Gas token</label><input type="text" id="fTick" value="FROG" maxlength="8" autocomplete="off"></div>
+        </div>
+        <div class="field"><label for="fFee">Base fee <output id="oFee"></output></label><input type="range" id="fFee" min="1000" max="50000" step="1000" value="5000"></div>
+        <div class="field"><label for="fBlock">Block time <output id="oBlock"></output></label><input type="range" id="fBlock" min="50" max="800" step="50" value="400"></div>
+        <div class="field"><label for="fVal">Validators <output id="oVal"></output></label><input type="range" id="fVal" min="1" max="64" step="1" value="7"></div>
+        <div class="field"><label>Settlement</label><div class="seg" data-key="settlement"><button type="button" aria-pressed="true">Solana</button><button type="button" aria-pressed="false">Ethereum</button><button type="button" aria-pressed="false">Sovereign</button></div></div>
+        <div class="field"><label>Data availability</label><div class="seg" data-key="da"><button type="button" aria-pressed="true">Solana</button><button type="button" aria-pressed="false">Celestia</button><button type="button" aria-pressed="false">EigenDA</button><button type="button" aria-pressed="false">Avail</button></div></div>
+        <div class="row2">
+          <div class="field"><label for="fSeq">Sequencer</label><select id="fSeq"><option>Shared</option><option>Dedicated</option></select></div>
+          <div class="field"><label for="fAccess">Program deploys</label><select id="fAccess"><option>Open to anyone</option><option>Allowlist only</option></select></div>
+        </div>
+      </form>
+
+      <div class="preview px" aria-live="polite">
+        <div class="chainhead">
+          <div class="chainicon" id="pIcon">F</div>
+          <div><h3 id="pName">frogworld.svm</h3><div class="sub" id="pSub">gas: $FROG</div></div>
+        </div>
+        <div class="meters">
+          <div class="meter"><span>est. TPS</span><b id="mTps">—</b></div>
+          <div class="meter"><span>finality</span><b id="mFin">—</b></div>
+          <div class="meter"><span>fee / tx</span><b id="mFee">—</b></div>
+        </div>
+        <div class="bars" id="bars" aria-hidden="true"></div>
+        <pre class="cfg" id="cfg" aria-label="Generated chain config"></pre>
+        <div class="deploy">
+          <button class="btn mag" id="signBtn" type="button">Connect to sign</button>
+          <small id="signNote">Signing is free. It proves you own this config and doesn't move funds.</small>
+        </div>
+        <div class="receipt" id="receipt"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="blk" id="modules">
+  <div class="wrap">
+    <div class="shead"><h2><i>03</i>Modular stack</h2><span class="tag">swap any layer</span></div>
+    <div class="mods">
+      <div class="mod px"><svg class="ico" viewBox="0 0 10 10" shape-rendering="crispEdges"><path fill="#2ff5e6" d="M1 1h8v2H1zM1 4h8v2H1zM1 7h8v2H1z"/><path fill="#04050c" d="M7 1h1v1H7zM7 4h1v1H7zM7 7h1v1H7z"/></svg><h3>Settlement</h3><p>Where your chain's state is finalized.</p><ul><li>Solana</li><li>Ethereum</li><li>Sovereign</li></ul></div>
+      <div class="mod px"><svg class="ico" viewBox="0 0 10 10" shape-rendering="crispEdges"><path fill="#8a5cff" d="M2 1h6v1h1v6H8v1H2V8H1V2h1z"/><path fill="#04050c" d="M3 3h4v4H3z"/><path fill="#ff3df5" d="M4 4h2v2H4z"/></svg><h3>Data availability</h3><p>Where transaction data is published so anyone can verify it.</p><ul><li>Solana</li><li>Celestia</li><li>EigenDA</li><li>Avail</li></ul></div>
+      <div class="mod px"><svg class="ico" viewBox="0 0 10 10" shape-rendering="crispEdges"><path fill="#ff3df5" d="M1 4h8v2H1zM4 1h2v8H4z"/><path fill="#2ff5e6" d="M1 1h2v2H1zM7 7h2v2H7zM7 1h2v2H7zM1 7h2v2H1z"/></svg><h3>Shared sequencer</h3><p>Transaction ordering and execution without running your own nodes.</p><ul><li>Shared</li><li>Dedicated</li></ul></div>
+      <div class="mod px"><svg class="ico" viewBox="0 0 10 10" shape-rendering="crispEdges"><path fill="#2ff5e6" d="M1 2h8v6H1z"/><path fill="#04050c" d="M2 3h6v4H2z"/><path fill="#2ff5e6" d="M3 4h1v1H3zM4 5h1v1H4zM5 6h2v-1H5z"/></svg><h3>RPC endpoint</h3><p>Every chain gets a public RPC that works with existing Solana clients.</p><ul><li>web3.js</li><li>Anchor</li><li>Solana CLI</li></ul></div>
+      <div class="mod px"><svg class="ico" viewBox="0 0 10 10" shape-rendering="crispEdges"><path fill="#8a5cff" d="M1 3h3v4H1zM6 3h3v4H6z"/><path fill="#2ff5e6" d="M4 4h2v2H4z"/></svg><h3>Bridges</h3><p>Move assets between your chain, Solana mainnet and other SVM chains.</p><ul><li>Solana</li><li>SVM chains</li></ul></div>
+      <div class="mod px"><svg class="ico" viewBox="0 0 10 10" shape-rendering="crispEdges"><path fill="#ff3df5" d="M1 8h8v1H1zM2 5h1v3H2zM4 3h1v5H4zM6 4h1v4H6zM8 1h1v7H8z"/></svg><h3>Dashboard and explorer</h3><p>Track transactions, TPS, validators and network revenue in public.</p><ul><li>Explorer</li><li>Analytics</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<section class="blk" id="market">
+  <div class="wrap">
+    <div class="shead"><h2><i>04</i>Chain marketplace</h2><span class="tag">discover, launch, invest</span></div>
+    <div class="tbl px" style="padding:8px 12px">
+      <table>
+        <thead><tr><th>Chain</th><th>Gas token</th><th>Type</th><th class="num">TPS</th><th class="num">Validators</th></tr></thead>
+        <tbody id="mkt"></tbody>
+      </table>
+    </div>
+    <p class="note">These are example listings showing how chains will appear. Live chains show here once the factory opens.</p>
+  </div>
+</section>
+
+<section class="blk" id="token">
+  <div class="wrap">
+    <div class="shead"><h2><i>05</i>The $SVM flywheel</h2><span class="tag">fees fund buybacks</span></div>
+    <div class="wheel">
+      <div class="wstep px"><b>Chains</b>More SVM chains launch</div>
+      <div class="wstep px"><b>Activity</b>More transactions and network activity</div>
+      <div class="wstep px"><b>Fees</b>More deployment and infrastructure fees</div>
+      <div class="wstep px"><b>Buyback</b>Revenue buys back $SVM</div>
+      <div class="wstep px"><b>Builders</b>More developers launch chains</div>
+    </div>
+    <div class="loopback">and around again</div>
+  </div>
+</section>
+
+<section class="blk" id="roadmap">
+  <div class="wrap">
+    <div class="split">
+      <div>
+        <div class="shead"><h2><i>06</i>Where fees come from</h2></div>
+        <div class="rev px"><dl>
+          <dt>Chain deployment</dt><dd>A one-time fee to launch a chain.</dd>
+          <dt>Infrastructure subscriptions</dt><dd>Managed validators, RPC and DA, billed monthly.</dd>
+          <dt>Marketplace commissions</dt><dd>A cut of trades and launches in the chain marketplace.</dd>
+          <dt>Shared sequencer fees</dt><dd>Paid per transaction ordered.</dd>
+          <dt>$SVM discounts</dt><dd style="margin-bottom:0">Pay any of the above in $SVM for a lower price.</dd>
+        </dl></div>
+      </div>
+      <div>
+        <div class="shead"><h2><i>07</i>Launch plan</h2></div>
+        <div class="phase px"><div class="when">phase one</div><h3>Managed appchains</h3><p>Chains run on existing execution and settlement infrastructure. You configure, we operate.</p></div>
+        <div class="phase next px"><div class="when">phase two</div><h3>Independent networks</h3><p>Full control over validators, settlement and economics as the platform matures.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="final">
+  <div class="wrap">
+    <img src="" data-logo alt="" width="120" height="120">
+    <h2>Stop renting blockspace.</h2>
+    <p>Your community, your gas token, your fees. Still fully compatible with Solana tooling.</p>
+    <div class="cta"><a class="btn" href="#factory">Build a chain</a><button class="btn ghost" type="button" id="connectBtn2">Connect wallet</button></div>
+    
+  </div>
+</section>
+</main>
+
+<footer><div class="wrap"><span>SVM // launch your own Solana</span><span>built on the Solana Virtual Machine</span></div></footer>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="box px">
+    <h3 id="mTitle">Connect a wallet</h3>
+    <div class="wlist" id="wlist"></div>
+    <button class="btn ghost" id="mClose" type="button">Close</button>
+  </div>
+</div>
+<div class="toast px" id="toast" role="status"></div>
+
+<script>
+(function(){
+  document.querySelectorAll("img[data-logo]").forEach(function(i){ i.src=document.getElementById("logoSrc").src; });
+  // ---------- config ----------
+  // Swap in your own RPC (Helius, Triton, QuickNode...). Public endpoints rate-limit browsers.
+  var RPC_URL = "https://api.mainnet-beta.solana.com";
+  var W3 = window.solanaWeb3 || null;
+  var conn = null;
+  try { if (W3) conn = new W3.Connection(RPC_URL, "confirmed"); } catch(e){}
+
+  var $ = function(id){ return document.getElementById(id); };
+  function toast(msg, err){ var t=$("toast"); t.textContent=msg; t.className="toast px on"+(err?" err":""); clearTimeout(t._h); t._h=setTimeout(function(){t.className="toast px";},3600); }
+  function short(a){ return a.slice(0,4)+"…"+a.slice(-4); }
+
+  // ---------- network rail ----------
+  function pollSlot(){
+    if(!conn){ $("rpcState").textContent="sdk offline"; $("rpcDot").classList.add("off"); return; }
+    conn.getSlot().then(function(s){ $("slot").textContent=s.toLocaleString(); $("rpcState").textContent="mainnet"; $("rpcDot").classList.remove("off"); })
+    .catch(function(){ $("rpcState").textContent="rpc unreachable"; $("rpcDot").classList.add("off"); });
+  }
+  
+
+  // ---------- wallets ----------
+  var WALLETS = [
+    { name:"Phantom",  get:function(){ return (window.phantom && window.phantom.solana && window.phantom.solana.isPhantom) ? window.phantom.solana : null; }, url:"https://phantom.app/" },
+    { name:"Solflare", get:function(){ return (window.solflare && window.solflare.isSolflare) ? window.solflare : null; }, url:"https://solflare.com/" },
+    { name:"Backpack", get:function(){ return (window.backpack && window.backpack.isBackpack) ? window.backpack : null; }, url:"https://backpack.app/" },
+    { name:"Other injected wallet", get:function(){ return window.solana || null; }, url:null }
+  ];
+  var provider=null, walletName=null, pubkey=null;
+
+  function renderList(){
+    var l=$("wlist"); l.innerHTML="";
+    WALLETS.forEach(function(w){
+      var p=w.get(); if(!p && !w.url) return;
+      var b=document.createElement("button"); b.type="button"; b.className="wopt"; b.setAttribute("data-ok", p?"1":"0");
+      b.innerHTML=w.name+"<small>"+(p?"detected":"install")+"</small>";
+      b.onclick=function(){ p ? connect(w.name,p) : window.open(w.url,"_blank","noopener"); };
+      l.appendChild(b);
+    });
+  }
+  function openModal(){ renderList(); $("modal").classList.add("on"); $("wlist").querySelector("button") && $("wlist").querySelector("button").focus(); }
+  function closeModal(){ $("modal").classList.remove("on"); }
+
+  function connect(name,p){
+    p.connect().then(function(res){
+      var pk = (res && res.publicKey) || p.publicKey;
+      if(!pk) throw new Error("No public key returned");
+      provider=p; walletName=name;
+      pubkey = W3 ? new W3.PublicKey(pk.toString()) : pk;
+      closeModal(); setConnected(); toast("Connected to "+name);
+      if(p.on){ p.on("disconnect", setDisconnected); p.on("accountChanged", function(npk){ if(npk){ pubkey = W3? new W3.PublicKey(npk.toString()):npk; setConnected(); } else setDisconnected(); }); }
+    }).catch(function(e){ toast((e && e.message) || "Connection rejected", true); });
+  }
+  function setConnected(){
+    var a=pubkey.toString();
+    ["connectBtn","connectBtn2"].forEach(function(id){ $(id).textContent=short(a); });
+    $("acctWallet").textContent=walletName; $("acctAddr").textContent=a;
+    $("acctBal").textContent="loading…";
+    $("signBtn").textContent="Sign config";
+    if(conn){ conn.getBalance(pubkey).then(function(l){ $("acctBal").textContent=(l / (W3.LAMPORTS_PER_SOL||1e9)).toFixed(4)+" SOL"; })
+      .catch(function(){ $("acctBal").textContent="unavailable (RPC blocked)"; }); }
+    else $("acctBal").textContent="unavailable";
+  }
+  function setDisconnected(){
+    provider=null; pubkey=null; walletName=null;
+    ["connectBtn","connectBtn2"].forEach(function(id){ $(id).textContent="Connect wallet"; });
+    $("acct").classList.remove("on"); $("signBtn").textContent="Connect to sign";
+  }
+  function walletClick(e){
+    if(pubkey && e.currentTarget.id==="connectBtn"){ $("acct").classList.toggle("on"); return; }
+    if(pubkey){ $("connectBtn").scrollIntoView(); $("acct").classList.add("on"); return; }
+    openModal();
+  }
+  $("connectBtn").onclick=walletClick; $("connectBtn2").onclick=walletClick;
+  $("mClose").onclick=closeModal;
+  $("modal").onclick=function(e){ if(e.target.id==="modal") closeModal(); };
+  document.addEventListener("keydown",function(e){ if(e.key==="Escape"){ closeModal(); $("acct").classList.remove("on"); } });
+  $("copyBtn").onclick=function(){ if(!pubkey) return; (navigator.clipboard? navigator.clipboard.writeText(pubkey.toString()):Promise.reject()).then(function(){toast("Address copied");}).catch(function(){toast("Copy failed. Select the address instead.",true);}); };
+  $("discBtn").onclick=function(){ try{ provider && provider.disconnect && provider.disconnect(); }catch(e){} setDisconnected(); toast("Disconnected"); };
+  // silent reconnect for trusted Phantom sessions
+  setTimeout(function(){ var p=WALLETS[0].get(); if(p){ p.connect({onlyIfTrusted:true}).then(function(r){ provider=p; walletName="Phantom"; pubkey= W3? new W3.PublicKey(r.publicKey.toString()) : r.publicKey; setConnected(); }).catch(function(){}); } }, 400);
+
+  // ---------- factory ----------
+  var state={ settlement:"Solana", da:"Solana" };
+  document.querySelectorAll(".seg").forEach(function(seg){
+    seg.querySelectorAll("button").forEach(function(b){
+      b.onclick=function(){ seg.querySelectorAll("button").forEach(function(x){x.setAttribute("aria-pressed","false");}); b.setAttribute("aria-pressed","true"); state[seg.dataset.key]=b.textContent; update(); };
+    });
+  });
+  function clean(s,up){ s=(s||"").replace(/[^a-zA-Z0-9-]/g,""); return up? s.toUpperCase(): s.toLowerCase(); }
+  function cfgObj(){
+    var name=clean($("fName").value)||"mychain", tick=clean($("fTick").value,true)||"GAS";
+    return { chain:name+".svm", gasToken:"$"+tick, baseFeeLamports:+$("fFee").value, blockTimeMs:+$("fBlock").value,
+      validators:+$("fVal").value, settlement:state.settlement, dataAvailability:state.da,
+      sequencer:$("fSeq").value.toLowerCase(), programDeploys:$("fAccess").value==="Open to anyone"?"open":"allowlist", runtime:"svm" };
+  }
+  function update(){
+    var c=cfgObj();
+    $("oFee").textContent=c.baseFeeLamports.toLocaleString()+" lamports";
+    $("oBlock").textContent=c.blockTimeMs+" ms";
+    $("oVal").textContent=c.validators;
+    $("pName").textContent=c.chain; $("pSub").textContent="gas: "+c.gasToken+"  /  "+c.settlement+" settlement";
+    $("pIcon").textContent=c.gasToken.charAt(1)||"?";
+    // rough illustrative estimate, not a benchmark
+    var tps=Math.round( (4000*(400/c.blockTimeMs)) * (c.sequencer==="dedicated"?1.4:1) / (1+Math.log2(c.validators)/8) );
+    $("mTps").textContent=tps.toLocaleString();
+    $("mFin").textContent=((c.blockTimeMs*(c.settlement==="Ethereum"?32:c.settlement==="Sovereign"?2:3))/1000).toFixed(1)+"s";
+    $("mFee").textContent=(c.baseFeeLamports/1e9).toFixed(6);
+    var bars=$("bars"); bars.innerHTML="";
+    for(var i=0;i<24;i++){ var h=Math.max(8, Math.min(100, (tps/9000)*100*(0.55+0.45*Math.abs(Math.sin(i*1.7+tps))) )); var el=document.createElement("i"); el.style.height=(Math.round(h/12.5)*12.5)+"%"; el.style.background= i%3? "var(--violet)":"var(--cyan)"; bars.appendChild(el); }
+    var json=JSON.stringify(c,null,2).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"([a-zA-Z]+)":/g,'<span class="k">"$1"</span>:');
+    $("cfg").innerHTML=json;
+    $("receipt").classList.remove("on");
+  }
+  ["fName","fTick","fFee","fBlock","fVal","fSeq","fAccess"].forEach(function(id){ $(id).addEventListener("input",update); $(id).addEventListener("change",update); });
+  update();
+
+  $("signBtn").onclick=function(){
+    if(!provider||!pubkey){ openModal(); return; }
+    if(!provider.signMessage){ toast(walletName+" can't sign messages",true); return; }
+    var c=cfgObj(); var msg="SVM chain reservation\n\n"+JSON.stringify(c)+"\n\nowner: "+pubkey.toString()+"\nissued: "+new Date().toISOString();
+    var bytes=new TextEncoder().encode(msg);
+    provider.signMessage(bytes,"utf8").then(function(r){
+      var sig = r && r.signature ? r.signature : r;
+      var b58 = (W3 && W3.PublicKey) ? new W3.PublicKey(sig.slice(0,32)).toBase58()+new W3.PublicKey(sig.slice(32,64)).toBase58() : Array.from(sig).map(function(x){return x.toString(16).padStart(2,"0");}).join("");
+      $("receipt").innerHTML="Reserved <b>"+c.chain+"</b> for "+short(pubkey.toString())+"<br>signature: <b>"+b58.slice(0,44)+"…</b><br>We'll deploy it when the factory opens.";
+      $("receipt").classList.add("on"); toast("Config signed");
+    }).catch(function(e){ toast((e&&e.message)||"Signature rejected",true); });
+  };
+
+  // ---------- marketplace (examples) ----------
+  var CH=[["frogworld.svm","$FROG","Memecoin chain",6200,7,"#2ff5e6"],["arcade.svm","$COIN","Gaming",9100,4,"#ff3df5"],["perpdex.svm","$PERP","DeFi",7800,16,"#8a5cff"],["guild.svm","$GLD","Social",3400,7,"#ffd23f"],["vault.svm","$VLT","Payments",5200,32,"#4fd0ff"]];
+  $("mkt").innerHTML=CH.map(function(r){ return '<tr><td><div class="nm"><i style="background:'+r[5]+'"></i>'+r[0]+'</div></td><td>'+r[1]+'</td><td>'+r[2]+'</td><td class="num">'+r[3].toLocaleString()+'<span class="tpsbar" style="width:'+Math.round(r[3]/9100*60)+'px"></span></td><td class="num">'+r[4]+'</td></tr>'; }).join("");
+
+  // ---------- ticker ----------
+
+
+})();
+</script>
+<script>
+/* ---------- 3D voxel logo ---------- */
+var VOX="AAQLAAAFDAAABQ0AAAUNAAAFDAAABQ0AAAUMAAEFDQABBQ0AAAYOAAAFDQAABg4AAAYOAAAGDwAABg4AAQYPAAAGDwABBg8AAQcPAAAHDwAABg8AAQcPAAEGEAAABxAAAAgQAAAHEAAABg8AAQcPAAEHEAABBxAAAAcPAAAHDwABBg8AAAYPAAAHDwABBw8AAAYPAAAGDwAABg8AAAUOAAAGDwAABw8AAAYPAAAGDwABBxAAAAcQAAEHEAABBg8AAAYPAAAGDwABBg8AAAYOAAEGDwAABxAAAQcQAAEGEAAABhAAAAYPAAEHEAAABw8AAQYPAAAGDwAABg8AAQcQAAAHEAABBxAAAAcPAAEGDwABBxAAAAYQAAAGDwAABg8AAQcPAAEHEAABBxAAAAcQAAAGDwAABxAAAQYQAAAHDwAABg8AAQcPAAEHDwAABg8AAAYPAAAGDwAABQ4AAQcPAAEHDwAABg4AAAUNAAAFDAAABAwAAAQMAAAECwAABAoAAAQMAAAEDAAABQwAAAQNAAAFDQABBg0AAAUNAAAFDQAABQ4AAAUNAAEFDQAABg4AAAYOAAAGDwAABg4AAAYPAAAHEAABBw8AAAYQAAEGDwAABg8AAQYQAAEHEAABBw8AAAcQAAAGDwABBhAAAQYPAAAHDwAABg8AAAcPAAAHDwABBg8AAAYPAAAHDwAABg8AAQcPAAAHDwAABg8AAAcQAAAHEAAABg8AAAcPAAEHEAABBw8AAAcQAAAHDwAABxAAAQYQAAAGDgABBg4AAQYOAAEFDgAABw8AAQcPAAAGDwABBg4AAAYPAAAHDwAABw8AAAYPAAAGDwABBxAAAQcRAAAHEAABBxAAAAcQAAAGDwAABhAAAAcPAAAGEAAABhAAAAYQAAAGDwABBxAAAQcQAAAGEAABBw8AAAcPAAEHDwAABg8AAAYPAAEHDwAABg8AAAYOAAAGDwAABg8AAAYOAAAFDgAABg4AAAUNAAAFDQAABAwAAQQMAAAEDAAAAwoAAQULAAEFDAAABQ0AAAUNAAAFDQAABQwAAAUNAAAFDQAABQ0AAAUNAAAFDQAABg4AAAYOAAAHDgAABw8AAAcQAAEHDwAABg8AAAYPAAAHDwAABw8AAAcPAAEHDwABBg8AAAcPAAAGDwAABw8AAQYQAAAGDwABBw8AAAYPAAEHDwAABg4AAAcPAAAHDwABBxAAAAYPAAAHDwABBw8AAQYQAAAGDwAABw8AAQcQAAEHDwAABg8AAAYPAAAGDwAABg8AAQcPAAEGDwABBg4AAAYPAAAGDgABBg8AAQcQAAAGDwABBg4AAQYOAAEGDgAABg4AAAYPAAAGDgAABg8AAAcQAAAHDwAABw8AAAYPAAAGDwAABw8AAAcPAAEHEAABBxAAAAcQAAAGDwAABxAAAAcQAAAGEAABBxAAAQYPAAEGDgAABg4AAQYPAAEHDwAABw8AAAcPAAAGDwAABg8AAAYPAAAFDwABBQ4AAAYNAAAFDQAABAwAAAQMAAEECwAAAwoAAAQLAAAFDAAABQwAAAQMAAAFDQAABQ0AAAUNAAAFDAAABQ0AAAYNAAEGDgABBw8AAAYPAAEHDwAABw8AAQcPAAAGDwAABQ4AAAYPAAAGDwAABg8AAAYPAAAGDwAABxAAAAcPAAAHDwAABg8AAQYPAAEHDwAABg8AAQYOAAEGDgAABg4AAAYOAAAGDgAABg8AAAYPAAEGDwAABg8AAAcPAAAGDwABBw8AAAYQAAAHDwAABw8AAQcPAAAGDgABBQ4AAAUOAAAGDwAABg4AAAYOAAAGDgAABg4AAAcQAAAHDwAABg8AAAUOAAAFDQABBg4AAAYOAAAGDgABBg4AAAYPAAAGDwAABg8AAAYPAAEGDwABBg8AAQcPAAAHEAABBxAAAAcQAAAHEAAABxAAAQcPAAAGDwAABg8AAAYOAAAFDgABBg4AAAUOAAAGDgAABg8AAAcOAAEHDwAABg8AAAYPAAAGDgAABg4AAQYOAAEFDQAABAwAAAQMAAAECwABBAoAAAQLAAEFDAAABQ0AAAUNAAAFDQAABQ0AAAYOAAAFDQAABQ0AAAUOAAEGDgABBg8AAAYPAAAHDwAABw8AAAYPAAAGDgAABQ4AAQYPAAEHDgABBg8AAAcPAAEHDwABBxAAAQYQAAEHEAAABg8AAAcPAAAGDwAABg4AAAUNAAAFDgAABg4AAAYOAAAGDgAABg4AAAYOAAEGDgAABg4AAAYOAAAGDQAABg4AAAYPAAAGDwABBw8AAAYOAAAGDgAABg8AAAYPAAEHDwABBxAAAAcPAAEHDwABBg8AAAYPAAAGDwAABg8AAQYOAAEFDgABBg4AAAYOAAEGDgAABg4AAAUOAAAGDwAABg8AAAYPAAEHDwAABg8AAQYPAAAGDwABBxAAAAcQAAEHEAAABg8AAAYQAAAGDwABBg4AAAUOAAEGDgABBg4AAQYPAAAGDwAABg8AAQcPAAAGDgAABQ4AAAUOAAEGDgABBQ4AAAUNAAAFDQAABAwAAAMMAAAEDAAAAwoAAAQLAAAEDAAABQwAAAUNAAAFDQAABg4AAAYOAAAGDQAABQ0AAAUNAAAGDQAABg4AAAYOAAAGDgAABg4AAAcPAAAGDwAABg8AAAcPAAEHDgAABg8AAQYOAAEGDwABBg8AAAYPAAEHDwAABg4AAQcPAAAGDgAABQ4AAAUNAAAFDQABBg4AAAYOAAAGDgAABg4AAAUNAAAFDQAABg4AAAYOAAAGDgAABg4AAAYPAAAGDgABBg8AAQYOAAAGDwAABw8AAQYQAAAGDwAABxEAAAcPAAAHEAAABg8AAAYPAAAHDwAABg4AAAYOAAEGDgABBg4AAAYPAAAGDwAABQ4AAAYPAAEGDgAABQ4AAAYPAAAGDgABBg8AAAYPAAAGDgABBw8AAAcPAAEHDwABBg8AAAYPAAAGDgAABg4AAAYOAAAGDwAABg8AAAYPAAAGDwABBhAAAQYQAAAGDgABBQ4AAAUNAAEFDgAABQ4AAAUNAAAFDQAABAwAAQQMAAADCwABAwoAAAMLAAEFDAAABQwAAAUNAAAFDQAABg0AAAYOAAAGDgAABQ4AAAUNAAAGDgAABg0AAAYOAAAHDgAABg4AAQcPAAAHDwAABg8AAAcPAAAGDgAABg4AAAYOAAEGDwABBg4AAQcPAAAGDwAABg4AAQcPAAAGDgAABQ0AAAUNAAEGDQABBQ0AAQYOAAAFDgAABg4AAQUOAAAGDgAABg0AAAYNAAEGDgAABg4AAQYPAAAHEAABBw8AAQcPAAEHDwABBxAAAQcPAAEHEAABBw8AAAYPAAEHDwAABg8AAAYPAAAFDgAABQ0AAAUOAAAGDgABBg4AAAcPAAEGDwAABg8AAAYOAAAGDwAABw8AAQcQAAEGDwABBw8AAQYPAAAGDgABBg8AAAYPAAAHDwABBw8AAQYOAAEGDwABBg4AAAUOAAEHDwAABw8AAQcQAAAHDwABBxAAAAYPAAEHDwAABg8AAAYOAAAGDgAABg4AAAUNAAAEDQABBAwAAAQMAAAECwABAwoAAAQLAAAFDAAABQ0AAAUMAAAFDQAABQ0AAAUNAAAFDQAABQ4AAAUNAAEGDgABBg4AAAYPAAAHDwAABg4AAAYPAAEGDwABBw8AAQYPAAAGDwAABg4AAQYPAAEGDwABBg4AAQYOAAAGDgABBg4AAQYOAAAFDgAABQ4AAAUNAAAFDQAABg0AAQUOAAEFDQABBQ4AAAUNAAAFDQAABQ0AAAUNAAAGDgAABg4AAAYPAAEGDwABBw8AAAYPAAEGDwAABg8AAAcPAAEHEAAABhAAAQYPAAEHEAABBxAAAQYPAAEGDgAABQ4AAAUNAAAGDgAABg4AAAYPAAEGDwAABg8AAAYPAAAHDwABBg8AAQcQAAEHDwABBw8AAAYPAAEGDgAABg4AAQcPAAAHEAAABg4AAQYPAAAGDgAABg8AAAYOAAAGDwABBxAAAQYPAAEGDwABBxAAAQcPAAAHEAAABg8AAAYPAAAGDgAABg4AAAUOAAAFDQAABQwAAAQMAAAEDAAAAwoAAAQLAAAFDAAABQwAAAUMAAAFDQABBQ0AAAUNAAAGDQAABQ4AAAYOAAAGDQAABQ4AAAYOAAAHEAABBg8AAQYPAAAGDwAABg8AAQcPAAAGDwAABg8AAQcPAAEGDgAABg4AAAYOAAAHDwAABg4AAQYOAAAGDgAABQ0AAAQNAAEGDgAABQ0AAAUNAAEGDQAABQ0AAAYNAAAFDQAABQ0AAAYNAAAGDgAABQ0AAAcQAAAGDgAABg8AAAYPAAAGDgABBg8AAAYOAAEGDwAABg8AAAYPAAEGDwABBg8AAQYPAAEGDgAABQ0AAAYNAAEFDQAABQ4AAAYOAAAGDgAABg8AAQcPAAAGDwAABw8AAAYPAAAGDwAABg8AAAYPAAEGDwABBw8AAAYPAAEGDwAABg4AAQYPAAAFDwAABg8AAAYOAAAGDwAABw8AAAcOAAAHDwABBxAAAQcQAAEHDwABBg8AAAYPAAAGDwAABQ4AAAYOAAEFDQABBQ0AAAQMAAEECwAAAwoAAAQMAAAEDAAABQ0AAAUMAAAFDQAABQ0AAAUNAAAFDQAABQ0AAAYOAAEGDQABBg0AAAYNAAEGDgAABg4AAAYPAAAGDwAABg8AAAcPAAAGDgAABw8AAAYPAAEHDwABBg8AAQYOAAAGDgAABg4AAAUOAAAGDQAABQ0AAAYOAAAGDgAABQ0AAAUNAAEFDgAABQ0AAAUNAAAGDgAABg4AAAYOAAAFDgAABg4AAAYOAAAGDgAABw4AAAYPAAAGDgAABg8AAAYPAAAGDgABBw8AAQcPAAAHDwAABg8AAQYPAAAGDwAABg8AAAYOAAAGDgABBg4AAQYOAAAFDgAABg4AAQYOAAAGDgABBw8AAAcPAAAGDwAABg8AAAYPAAEGDwAABg8AAAYPAAAGDgAABQ4AAAYOAAAGDgAABg4AAAYOAAAGDwAABg8AAAYPAAEHDwAABg8AAAYPAAAGDwAABg8AAQYPAAAGDgAABg4AAAUNAAAFDQAABQ0AAAQMAAAECwAAAwoAAQQLAAAFDAAABQwAAAUNAAAEDAAABQ0AAAUNAAAFDQAABQ0AAAYOAAAGDQAABQ0AAAYNAAAFDQAABg4AAAcPAAEHDwABBw8AAAcPAAEHDwAABw8AAAYPAAAGDwAABg8AAAYPAAAGDgAABg4AAQUNAAAFDQAABQ0AAAUNAAAFDQAABQ0AAAUNAAAFDQAABQ0AAAUNAAAGDgAABg0AAAYOAAAGDQAABg4AAAUNAAEGDgAABg4AAAYPAAAGDgAABg4AAQYOAAEFDgAABg4AAAYOAAEGDgAABw8AAQcPAAEGDwABBg8AAQYOAAAGDgAABg4AAAYOAAAGDgAABQ0AAAYOAAAGDgABBg8AAQYPAAAFDgAABg8AAAYPAAEGDwABBg4AAAYOAAEGDgAABQ0AAAYOAAAFDgAABg8AAAcPAAAGDwAABhAAAAYOAAAHDgAABg8AAQYOAAAGDwAABhAAAAYPAAAGDgAABg4AAAUNAAAFDQAABAwAAQUNAAAEDAABBAoAAAQLAAAFDQAABQ4AAAUNAAAFDQAABQ0AAAUNAAAFDQAABQ0AAAUNAAAGDgAABg0AAAYNAAAGDQAABQ4AAAYOAAAGDwAABw8AAQcPAAEGDwAABg8AAQYPAAAHDwAABw8AAAYOAAAGDgAABg4AAQYOAAEGDQAABg0AAQUNAAAFDQAABQ0AAQUNAAAFDQAABQ0AAAYNAAAFDQAABg4AAAYNAAAFDQAABQ0AAAUNAAEGDgAABg4AAQYOAAAFDQAABg4AAAYOAAAFDQAABg4AAAYOAAEGDgAABg8AAAYOAAAGDgAABg4AAAUOAAAGDgABBg4AAAYNAAAFDQAABQ4AAAYOAAEGDgABBg4AAAYOAAAGDgAABg8AAQYPAAAGDwAABg4AAQYOAAAFDQABBQ4AAAUOAAEGDgABBg8AAAYPAAAGDwAABg8AAAcPAAAGDwAABg8AAAYPAAAHDwAABg8AAAYPAAAGDgAABg4AAAUNAAAFDQAABQ0AAAUNAAAEDAABAwoAAAQLAAEFDQAABQ4AAAUNAAAEDAAABQ0AAAUNAAAFDQAABQ0AAAUNAAAFDQAABQwAAQYNAAAGDQAABg4AAAYOAAAGDgAABg4AAQcOAAEHDwABBw8AAQcPAAEHDwAABw8AAAYPAAAGDgAABQ0AAAUNAAAGDQAABQ0AAAUMAAAFDQAABQ0AAAUMAAAFDAAABQ0AAAYOAAAGDQAABQ4AAAUNAAAFDQAABQ0AAAUMAAAFDAAABQwAAQYNAAEFDQABBQ0AAAUNAAAFDQAABQ0AAAUNAAAFDQABBg4AAQYOAAAFDQAABg4AAAUOAAAGDgAABQ4AAAUOAAEFDQABBQ0AAAUNAAEGDgABBg4AAQYOAAEGDgAABg8AAAYOAAEGDgABBQ0AAAUNAAEFDQAABQ0AAQUNAAAGDgAABg8AAAcPAAAHDwAABw8AAQYPAAAGDgAABg4AAQYOAAAHDwABBxAAAQYPAAAGDgAABg4AAAYOAAAFDgAABQ4AAAUNAAAEDAAAAwoAAAQMAAAEDAAABQ0AAAUNAAAFDAABBQ0AAAUMAAAEDAAABQ0AAAUNAAAGDgAABQ0AAAYOAAAGDgAABQ0AAAYOAAAGDgAABg4AAQcPAAAHDwAABg8AAAYPAAAGDgABBg4AAQYOAAEGDQAABQ0AAAYNAAEFDQAABQwAAAUMAAAFDAAABQwAAAUNAAAFDQAABQ0AAAYOAAAFDQABBg8AAAUOAAAFDQAABQwAAAUMAAEFDAAABAwAAQQMAAEFDQAABQwAAAUNAAAEDAAABAwAAQQNAAEFDQABBQ0AAQUNAAAFDQABBQ0AAAUNAAAFDQAABQ0AAAUNAAEFDQABBQ0AAAUNAAAGDQABBg4AAQUOAAEFDgABBQ0AAQUOAAEFDgABBQ0AAAUNAAEFDQAABQ0AAAUOAAAFDgAABg4AAQcPAAAGDwABBw8AAQYOAAEHDwAABg4AAQcPAAEHDwABBw8AAAYOAAAGDgAABQ4AAAUNAAAGDgAABQ4AAAUNAAAFDAAAAwoAAAQMAAEFDQAABQ0AAAUNAAAFDAAABQ0A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AQcOAAAHDgAABg4AAQcPAAEHDgAABw4AAAcPAAEHEAAACBAAAAkRAAAJEgAACRIAAAoSAAALEwAACxQAAAoUAAAMFgAADBcAAQwXAAAMFwAADBcAAAsVAAALFAABChIAAAoSAAEJEgAACREAAAkRAAAIEAAACBAAAAgQAAAIEAAACBAAAAgPAAEHDwAABw8AAAcPAAAHDwAABg4AAAUOAAAFDgAABQ0AAAUOAAEFDgAABQ0AAAUOAAAFDgABBQ4AAAUOAAAFDQAABQ0AAAUNAAAFDQAABAwAAAQMAAAECwAAAwkAAAQLAAAEDAABBAwAAAUNAAAFDQAABQwAAAUNAAAGDQAABg0AAAYOAAAGDgABBw4AAAcPAAEHDwABBw4AAAcPAAEHDgAABg4AAQYPAAAGDgAABg4AAAUNAAAGDgAABg4AAAYOAAAGDgABBg4AAAYOAAAGDgAABg4AAAYOAAAGDgAABg4AAAYOAAAGDgABBg4AAAYPAAAGDgAABg4AAAYPAAAGDgAABg4AAAYNAAAGDgAABg4AAAcOAAAGDgAABw8AAAgQAAAIEQAACREAAAgRAAAJEQAACBEAAAkSAAAJEwAAChIAAAoTAAALFAAAChMAAAkSAAAKEgAACREAAAgRAAEIEQAACBEAAAgQAAAIEAAACBAAAAcQAAAHEAAABxAAAAcPAAAHDwAABw4AAAYOAAAFDgAABg0AAAUNAAEFDQAABQ0AAAUNAAAFDQABBQ4AAAUOAAAFDQAABQ0AAAUNAAAEDQAABQ0AAAUNAAAEDAAABAwAAAQLAAADCwABAwkAAAQMAAAECwABBQwAAAUNAAAFDQAABQ0AAAYNAAAGDQAABQ0AAQYOAAAGDgABBg8AAAcOAAAGDwABCBAAAQcPAAEGDwAABg4AAAYOAAAGDQAABg4AAAUOAAAGDQAABg0AAAUNAAEGDgAABQ4AAAUNAAAGDQAABg4AAQUNAAEGDgAABg4AAAUOAAAGDQABBg4AAQUNAAAGDQAABQ0AAAUNAAEGDQAABQ0AAQYOAAAFDQAABg4AAQYOAAAGDwABBw8AAAcPAAAHDwAABw8AAAcPAAAHDwAABw8AAAgQAAAIEQAACRIAAAgRAAAIEQAACBEAAAgRAAAHEAAACBAAAAgQAAAHEAAACBAAAQgQAAAHDwAACBAAAAcPAAAHDwAABg8AAAYOAAAGDgAABg4AAAUNAAAFDQAABQ4AAAUNAAAFDQAABQ0AAAUNAAAFDQAABg4AAQYOAAAFDQAABQ0AAAUNAAAFDQAABA0AAAUMAAAFDAAABAsAAAQLAAAECgAAAwkAAQQLAAAEDAAABQwAAAQMAAAEDAAABQ0AAAUNAAAFDQABBQ0AAAUNAAEFDQAABg4AAAYOAAEGDwAABg8AAAYOAAAGDgAABg0AAAUOAAAGDQAABQ0AAAUNAAEFDQAABQ0AAAUMAAEFDQABBQ0AAAUMAAAFDQABBg0AAAUMAAEFDQAABQ0AAAUNAAAFDQAABAwAAAUNAAAFDAAABAwAAAUMAAAFDQAABQwAAAUNAAAFDQAABg0AAAUNAAAFDQAABg4AAAYOAAAGDgAABg4AAAYOAAAGDgAABg8AAAYOAAAHDwAABw8AAAcPAAAHDwAABw8AAAcPAAAHDwAABw8AAAcPAAAHEAAABw8AAAYPAAAGDgAABg4AAAcPAAAGDgAABg4AAAUNAAAFDQAABQ0AAAUNAAAFDgAABQ4AAAUNAAAFDQAABQ0AAAUNAAAEDQAABQ0AAAUOAAEFDQAABQwAAAQMAAAFDQAABAwAAAUNAAAFDAAAAwsAAAQLAAEECwAAAwkAAAMKAAAECwABBQ0AAAQMAAAEDAABBQ0AAAUNAAEFDQAABAwAAAQMAAAFDAAABQ0AAAYOAAAGDgAABQ0AAAQNAAAFDQAABQ0AAAUNAAAEDAABBQ0AAAUMAAAFDAAABQ0AAAUNAAAFDQAABA0AAAQMAAAFDAAABQ0AAAUNAAAFDQAABA0AAAUMAAAFDAAABQwAAAUNAAAFDAAABAwAAAQMAAEFDQAABQ0AAAUNAAAEDAABBg0AAQUNAAEFDQABBQ0AAAYOAAAFDQAABQ0AAAUNAAAFDQAABg4AAAYOAAAGDgAABg8AAAcPAAAGDwAABg8AAAYOAAAGDgAABg4AAAYPAAAGDgAABw8AAQcPAAAGDgAABw8AAAYOAAAGDgAABg4AAAYNAAAFDAAABQ0AAQUNAAEGDgAABQ0AAAUNAAAFDQAABQ0AAAUNAAEGDQAABQ0AAAUNAAAFDQAABA0AAAUMAAEFDQAABQ0AAAQNAAAFDAAABAwAAAQLAAADCwABAgkA";
+(function(){
+  var wrap=document.getElementById("voxWrap"), cv=document.getElementById("vox"), src=document.getElementById("logoSrc");
+  function fail(){ wrap.classList.add("fallback"); }
+  if(!window.THREE||!src||!cv) return fail();
+  var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var TAU=Math.PI*2;
+
+  function init(){
+    var renderer;
+    try{ renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true}); }catch(e){ return fail(); }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+
+    // voxel grid sampled 1:1 from the logo's own pixel grid (96x96, RGBA, alpha = part of the machine)
+    var N=96, raw=atob(VOX), V=[], minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9;
+    for(var j=0;j<N;j++)for(var i=0;i<N;i++){
+      var k=(j*N+i)*4; if(raw.charCodeAt(k+3)<128) continue;
+      var r=raw.charCodeAt(k),g=raw.charCodeAt(k+1),b=raw.charCodeAt(k+2),mx=Math.max(r,g,b),mn=Math.min(r,g,b);
+      var sat=mx?(mx-mn)/mx:0, br=mx/255;
+      V.push({hx:i,hy:-j,d:2+br*2.2+(br>.35?sat*2.4:0),r:Math.max(r,8)/255,g:Math.max(g,8)/255,b:Math.max(b,14)/255});
+      if(i<minx)minx=i; if(i>maxx)maxx=i; if(j<miny)miny=j; if(j>maxy)maxy=j;
+    }
+    var cx=(minx+maxx)/2, cy=-(miny+maxy)/2;
+    V.forEach(function(v){ v.hx-=cx; v.hy-=cy; });
+    var n=V.length;
+
+    var scene=new THREE.Scene();
+    var cam=new THREE.PerspectiveCamera(32,1,1,1000); cam.position.set(0,0,158);
+    scene.add(new THREE.AmbientLight(0xffffff,0.85));
+    var dl=new THREE.DirectionalLight(0xffffff,0.55); dl.position.set(-40,60,80); scene.add(dl);
+    var rim=new THREE.DirectionalLight(0xff3df5,0.6); rim.position.set(60,-20,-40); scene.add(rim);
+    var rim2=new THREE.DirectionalLight(0x2ff5e6,0.5); rim2.position.set(-60,20,-40); scene.add(rim2);
+
+    var mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshLambertMaterial({color:0xffffff}),n);
+    var group=new THREE.Group(); group.add(mesh); scene.add(group);
+    var col=new THREE.Color();
+    for(var q=0;q<n;q++){ col.setRGB(V[q].r,V[q].g,V[q].b); mesh.setColorAt(q,col); }
+    mesh.instanceColor.needsUpdate=true;
+
+    var P=new Float32Array(n*3), Vel=new Float32Array(n*3), dummy=new THREE.Object3D();
+    var rx=0,ry=0,vx=0,vy=0,drag=false,lx=0,ly=0,moved=0,hover=null,t0=performance.now();
+    var ray=new THREE.Raycaster(), ndc=new THREE.Vector2(), plane=new THREE.Plane(new THREE.Vector3(0,0,1),-2), hit=new THREE.Vector3(), inv=new THREE.Matrix4();
+
+    function localPoint(e){
+      var rc=cv.getBoundingClientRect();
+      ndc.set(((e.clientX-rc.left)/rc.width)*2-1, -((e.clientY-rc.top)/rc.height)*2+1);
+      ray.setFromCamera(ndc,cam);
+      group.updateMatrixWorld(); inv.copy(group.matrixWorld).invert();
+      var r2=ray.ray.clone().applyMatrix4(inv);
+      return r2.intersectPlane(plane,hit)?hit.clone():null;
+    }
+    function shatter(p){
+      for(var q=0;q<n;q++){
+        var dx=V[q].hx-p.x,dy=V[q].hy-p.y,L=Math.sqrt(dx*dx+dy*dy)+.5,s=4.8/(1+L*0.035),o=q*3;
+        Vel[o]+=dx/L*s+(Math.random()-.5)*1.2; Vel[o+1]+=dy/L*s+(Math.random()-.5)*1.2; Vel[o+2]+=(Math.random()*1.5+.4)*s;
+      }
+    }
+
+    cv.addEventListener("pointerdown",function(e){ drag=true; moved=0; lx=e.clientX; ly=e.clientY; try{cv.setPointerCapture(e.pointerId);}catch(_){} });
+    cv.addEventListener("pointermove",function(e){
+      if(drag){ var dx=e.clientX-lx,dy=e.clientY-ly; lx=e.clientX; ly=e.clientY; moved+=Math.abs(dx)+Math.abs(dy); vy=dx*0.012; vx=dy*0.012; ry+=vy; rx+=vx; }
+      hover=localPoint(e);
+    });
+    cv.addEventListener("pointerup",function(e){ if(drag&&moved<6){ var p=localPoint(e); if(p) shatter(p); } drag=false; });
+    cv.addEventListener("pointerleave",function(){ hover=null; });
+    cv.addEventListener("pointercancel",function(){ drag=false; hover=null; });
+    cv.addEventListener("keydown",function(e){
+      if(e.key==="ArrowLeft"){vy-=0.08;e.preventDefault();} else if(e.key==="ArrowRight"){vy+=0.08;e.preventDefault();}
+      else if(e.key==="ArrowUp"){vx-=0.06;e.preventDefault();} else if(e.key==="ArrowDown"){vx+=0.06;e.preventDefault();}
+      else if(e.key==="Enter"||e.key===" "){ shatter(new THREE.Vector3(0,0,2)); e.preventDefault(); }
+    });
+
+    function size(){ var w=wrap.clientWidth||320; renderer.setSize(w,w,false); cam.aspect=1; cam.updateProjectionMatrix(); }
+    size(); window.addEventListener("resize",size);
+
+    var visible=true;
+    if("IntersectionObserver" in window){ new IntersectionObserver(function(es){ visible=es[0].isIntersecting; }).observe(wrap); }
+
+    function near(cur,target){ return target+TAU*Math.round((cur-target)/TAU); }
+    function frame(now){
+      requestAnimationFrame(frame);
+      if(!visible) return;
+      var t=(now-t0)/1000;
+      if(!drag){
+        ry+=vy; rx+=vx; vy*=0.94; vx*=0.94;
+        var ty=reduce?0:Math.sin(t*0.6)*0.42, tx=reduce?0:Math.sin(t*0.45)*0.1-0.04;
+        if(Math.abs(vy)<0.02) ry+=(near(ry,ty)-ry)*0.03;
+        if(Math.abs(vx)<0.02) rx+=(near(rx,tx)-rx)*0.04;
+      }
+      group.rotation.set(rx,ry,0);
+      for(var q=0;q<n;q++){
+        var v=V[q],o=q*3,push=0;
+        if(hover){ var dx=v.hx-hover.x,dy=v.hy-hover.y,dd=dx*dx+dy*dy; if(dd<196) push=Math.round((1-Math.sqrt(dd)/14)*8); }
+        Vel[o]+=-P[o]*0.045;           Vel[o]*=0.88;   P[o]+=Vel[o];
+        Vel[o+1]+=-P[o+1]*0.045;       Vel[o+1]*=0.88; P[o+1]+=Vel[o+1];
+        Vel[o+2]+=(push-P[o+2])*0.06;  Vel[o+2]*=0.85; P[o+2]+=Vel[o+2];
+        dummy.position.set(v.hx+P[o], v.hy+P[o+1], v.d/2+P[o+2]-2);
+        dummy.rotation.set(P[o+1]*0.06, P[o]*0.06, 0);
+        dummy.scale.set(1,1,v.d);
+        dummy.updateMatrix(); mesh.setMatrixAt(q,dummy.matrix);
+      }
+      mesh.instanceMatrix.needsUpdate=true;
+      renderer.render(scene,cam);
+    }
+    requestAnimationFrame(frame);
+  }
+  if(src.complete && src.naturalWidth) init(); else src.addEventListener("load",init);
+})();
+</script>
+</body>
+</html>

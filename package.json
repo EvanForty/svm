@@ -1,0 +1,9 @@
+{
+  "name": "svm-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SVM — Launch your own Solana. Static landing page.",
+  "scripts": {
+    "dev": "npx --yes serve . -l 3000"
+  }
+}
